@@ -1,0 +1,6 @@
+freqtrade>=2024.1
+pandas>=2.0.0
+numpy>=1.24.0
+ta-lib>=0.4.28
+pandas-ta>=0.3.14b
+technical>=1.4.0
