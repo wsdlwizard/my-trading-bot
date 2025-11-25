@@ -107,4 +107,4 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENS
 
 ## Disclaimer
 
-This software is for educational purposes only. Use at your own risk. Trading cryptocurrencies involves significant risk of loss. Always do your own research before trading
+This software is for educational purposes only. Use at your own risk. Trading cryptocurrencies involves significant risk of loss. Always do your own research before trading.
