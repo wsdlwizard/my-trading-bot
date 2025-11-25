@@ -473,7 +473,15 @@ class CandlePatternStrategy(IStrategy):
         dataframe['mom'] = ta.MOM(dataframe, timeperiod=10)
 
         # VWAP - Volume Weighted Average Price (approximate)
-        dataframe['vwap'] = (dataframe['volume'] * (dataframe['high'] + dataframe['low'] + dataframe['close']) / 3).cumsum() / dataframe['volume'].cumsum()
+        cumulative_volume = dataframe['volume'].cumsum()
+        typical_price = (dataframe['high'] + dataframe['low'] + dataframe['close']) / 3
+        cumulative_tp_volume = (dataframe['volume'] * typical_price).cumsum()
+        # Avoid division by zero when cumulative volume is zero
+        dataframe['vwap'] = np.where(
+            cumulative_volume > 0,
+            cumulative_tp_volume / cumulative_volume,
+            typical_price
+        )
 
         # Ichimoku Cloud
         dataframe['ichimoku_conv'] = (
@@ -507,10 +515,20 @@ class CandlePatternStrategy(IStrategy):
         dataframe['kama'] = ta.KAMA(dataframe, timeperiod=30)
 
         # CMF - Chaikin Money Flow (approximate)
-        mfv = ((dataframe['close'] - dataframe['low']) - (dataframe['high'] - dataframe['close'])) / (
-            dataframe['high'] - dataframe['low']
-        ) * dataframe['volume']
-        dataframe['cmf'] = mfv.rolling(window=20).sum() / dataframe['volume'].rolling(window=20).sum()
+        price_range = dataframe['high'] - dataframe['low']
+        # Avoid division by zero when high equals low (zero range candles)
+        mfv = np.where(
+            price_range > 0,
+            ((dataframe['close'] - dataframe['low']) - (dataframe['high'] - dataframe['close'])) / price_range * dataframe['volume'],
+            0
+        )
+        rolling_volume = dataframe['volume'].rolling(window=20).sum()
+        # Avoid division by zero when rolling volume sum is zero
+        dataframe['cmf'] = np.where(
+            rolling_volume > 0,
+            mfv.rolling(window=20).sum() / rolling_volume,
+            0
+        )
 
         # Elder Ray Index
         dataframe['bull_power'] = dataframe['high'] - dataframe['ema_medium']
@@ -681,7 +699,8 @@ class CandlePatternStrategy(IStrategy):
         volume_condition = dataframe['volume'] > 0
 
         # Entry signal: Need at least 3 conditions to be true + time and volume filters
-        condition_sum = sum([c.astype(int) if hasattr(c, 'astype') else int(c) for c in conditions[:9]])
+        # Use len(conditions) to avoid magic number coupling
+        condition_sum = sum([c.astype(int) if hasattr(c, 'astype') else int(c) for c in conditions])
 
         if isinstance(time_condition, bool):
             dataframe.loc[

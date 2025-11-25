@@ -15,6 +15,11 @@ import numpy as np
 from freqtrade.optimize.hyperopt import IHyperOptLoss
 from freqtrade.data.metrics import calculate_sharpe, calculate_sortino, calculate_calmar
 
+# Constants
+MIN_AVG_LOSS_FALLBACK = 0.0001  # Fallback value when no losing trades exist
+MIN_TRADES_REQUIRED = 20  # Minimum number of trades for valid optimization
+MAX_LOSS_PENALTY = 100.0  # Penalty returned when constraints are not met
+
 
 class SharpeHyperOptLoss(IHyperOptLoss):
     """
@@ -39,14 +44,14 @@ class SharpeHyperOptLoss(IHyperOptLoss):
         Lower values are better for hyperopt.
         """
         # Minimum trades filter
-        if trade_count < 20:
-            return 100.0
+        if trade_count < MIN_TRADES_REQUIRED:
+            return MAX_LOSS_PENALTY
 
         sharpe = calculate_sharpe(results, min_date, max_date)
 
         # Return negative sharpe (we want to maximize sharpe, but hyperopt minimizes)
         if sharpe is None or np.isnan(sharpe):
-            return 100.0
+            return MAX_LOSS_PENALTY
 
         return -sharpe
 
@@ -72,13 +77,13 @@ class SortinoHyperOptLoss(IHyperOptLoss):
         """
         Calculate loss based on Sortino ratio.
         """
-        if trade_count < 20:
-            return 100.0
+        if trade_count < MIN_TRADES_REQUIRED:
+            return MAX_LOSS_PENALTY
 
         sortino = calculate_sortino(results, min_date, max_date)
 
         if sortino is None or np.isnan(sortino):
-            return 100.0
+            return MAX_LOSS_PENALTY
 
         return -sortino
 
@@ -104,13 +109,13 @@ class CalmarHyperOptLoss(IHyperOptLoss):
         """
         Calculate loss based on Calmar ratio.
         """
-        if trade_count < 20:
-            return 100.0
+        if trade_count < MIN_TRADES_REQUIRED:
+            return MAX_LOSS_PENALTY
 
         calmar = calculate_calmar(results, min_date, max_date)
 
         if calmar is None or np.isnan(calmar):
-            return 100.0
+            return MAX_LOSS_PENALTY
 
         return -calmar
 
@@ -136,8 +141,8 @@ class WinRateProfitFactorLoss(IHyperOptLoss):
         """
         Calculate combined loss from win rate and profit factor.
         """
-        if trade_count < 20:
-            return 100.0
+        if trade_count < MIN_TRADES_REQUIRED:
+            return MAX_LOSS_PENALTY
 
         # Calculate win rate
         winning_trades = len(results[results['profit_ratio'] > 0])
@@ -185,8 +190,8 @@ class CryptoOptimizedLoss(IHyperOptLoss):
         Calculate crypto-optimized loss function.
         """
         # Minimum trades requirement
-        if trade_count < 20:
-            return 100.0
+        if trade_count < MIN_TRADES_REQUIRED:
+            return MAX_LOSS_PENALTY
 
         # Get stats
         total_profit = results['profit_ratio'].sum()
@@ -196,7 +201,7 @@ class CryptoOptimizedLoss(IHyperOptLoss):
 
         # Average win/loss
         avg_win = results[results['profit_ratio'] > 0]['profit_ratio'].mean() if winning_trades > 0 else 0
-        avg_loss = abs(results[results['profit_ratio'] <= 0]['profit_ratio'].mean()) if losing_trades > 0 else 0.0001
+        avg_loss = abs(results[results['profit_ratio'] <= 0]['profit_ratio'].mean()) if losing_trades > 0 else MIN_AVG_LOSS_FALLBACK
 
         # Expectancy
         expectancy = (win_rate * avg_win) - ((1 - win_rate) * avg_loss)
